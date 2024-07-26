@@ -1,4 +1,3 @@
-import nest
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -133,7 +132,7 @@ def gen_traj(maze,N_trials,p_correct,speed=20):
     t = np.linspace(0,N_trials*trial_length/speed,len(x))
     return t,x,y
 
-def firing_place_cell_linear(t,x,center_x,L,sigma=10,rmax=15):
+def firing_place_cell_linear(t,x,center_x,L,sigma=7,rmax=20):
     '''Generate a place cell firing rate based on the position of the
     animal in the maze. The firing rate is a gaussian centered at the
     center_x position of the place cell. We ignore the center_y and y maze. 
@@ -156,8 +155,8 @@ def firing_place_cell_linear(t,x,center_x,L,sigma=10,rmax=15):
     # normalize the firing rate to 1
     r = r/np.max(r)
 
-    # calculate theta signal
-    theta = np.cos(2*np.pi*8*t + (1/2*(sigma/L))*(x-center_x))
+    # calculate theta signal (assume 2 sigma is the full width of the gaussian)
+    theta = np.cos(2*np.pi*7*t + (1/2*(2*sigma/L))*(x-center_x))
     # scale the theta signal to be between 0 and 1
     theta = (theta+1)/2
 
