@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import interpolate
 
 # generate a Y maze
 class YMaze():
@@ -138,8 +139,6 @@ def firing_place_cell_linear(t,x,center_x,L,sigma=7,rmax=20):
     center_x position of the place cell. We ignore the center_y and y maze. 
     The firing rate is scaled by the distance from the center of the place field.
 
-    t is the time of the trajectory
-    x is the x position of the trajectory
     center_x is the x position of the place field
     L is the maze length total
     sigma is the standard deviation of the gaussian
@@ -148,19 +147,7 @@ def firing_place_cell_linear(t,x,center_x,L,sigma=7,rmax=20):
     firing rate. This effect is a sinusoidal modulation of the firing rate with 
     a term for phase-precession.
     '''
+    x_t = interpolate.interp1d(t,x,kind='linear',fill_value='extrapolate')
     # calculate the distance from the center of the place field
-    d = np.sqrt((x-center_x)**2)
     # calculate the firing rate
-    r = np.exp(-d**2/(2*sigma**2))
-    # normalize the firing rate to 1
-    r = r/np.max(r)
-
-    # calculate theta signal (assume 2 sigma is the full width of the gaussian)
-    theta = np.cos(2*np.pi*7*t + (1/2*(2*sigma/L))*(x-center_x))
-    # scale the theta signal to be between 0 and 1
-    theta = (theta+1)/2
-
-    # multiply the firing rate by the theta signal to scale to 0 to rmax
-    r = r*rmax*theta
-    
-    return r
+    return lambda t: rmax*(np.exp(-(np.sqrt((x_t(t)-center_x)**2))**2/(2*sigma**2)))*(1+np.cos(2*np.pi*7*t + (1/2*(2*sigma/L))*(x_t(t)-center_x)))/2
