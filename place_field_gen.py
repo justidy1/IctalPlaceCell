@@ -150,4 +150,5 @@ def firing_place_cell_linear(t,x,center_x,L,sigma=7,rmax=20):
     x_t = interpolate.interp1d(t,x,kind='linear',fill_value='extrapolate')
     # calculate the distance from the center of the place field
     # calculate the firing rate
-    return lambda t: rmax*(np.exp(-(np.sqrt((x_t(t)-center_x)**2))**2/(2*sigma**2)))*(1+np.cos(2*np.pi*7*t + (1/(2*2*sigma/L))*(x_t(t)-center_x)))/2
+    Q = 2*sigma/L
+    return lambda t: rmax*(np.exp(-((x_t(t)-center_x)**2)/(2*sigma**2)))*(1+np.cos(2*np.pi*7*t + (np.pi/(2*np.pi*Q))*(x_t(t)-center_x)))/2
