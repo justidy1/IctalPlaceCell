@@ -225,7 +225,7 @@ def gen_spike_train(t_sim,STDP_ictal=False,seed=1234):
     conn_CA3_to_CA3 = nest.GetConnections(CA3_pyr,CA3_pyr).get(['source','target','weight'])
     conn_CA3_to_CA1 = nest.GetConnections(CA3_pyr,CA1_pyr).get(['source','target','weight'])
 
-    return conn_CA3_to_CA3,conn_CA3_to_CA1
+    return conn_CA3_to_CA3,conn_CA3_to_CA1,pf_CA3,pf_CA1
 
 N_reps = 10
 t_sim = 600 # seconds
@@ -237,15 +237,21 @@ conn_CA3_to_CA1_controls = []
 conn_CA3_to_CA3_ictal = []
 conn_CA3_to_CA1_ictal = []
 
+all_pf_CA3 = []
+all_pf_CA1 = []
+
 for i in range(N_reps):
     print(i)
-    conn_CA3_to_CA3,conn_CA3_to_CA1 = gen_spike_train(t_sim,STDP_ictal=False,seed=i+1000)
+    conn_CA3_to_CA3,conn_CA3_to_CA1,pf_CA3,pf_CA1 = gen_spike_train(t_sim,STDP_ictal=False,seed=i+1000)
     conn_CA3_to_CA3_controls.append(conn_CA3_to_CA3)
     conn_CA3_to_CA1_controls.append(conn_CA3_to_CA1)
+    all_pf_CA3.append(pf_CA3)
+    all_pf_CA1.append(pf_CA1)
     
-    conn_CA3_to_CA3,conn_CA3_to_CA1 = gen_spike_train(t_sim,STDP_ictal=True,seed=i+1000)
+    conn_CA3_to_CA3,conn_CA3_to_CA1,pf_CA3,pf_CA1 = gen_spike_train(t_sim,STDP_ictal=True,seed=i+1000)
     conn_CA3_to_CA3_ictal.append(conn_CA3_to_CA3)
     conn_CA3_to_CA1_ictal.append(conn_CA3_to_CA1)
 
 np.savez('data/line_maze_data.npz',conn_CA3_to_CA3_controls=conn_CA3_to_CA3_controls,conn_CA3_to_CA1_controls=conn_CA3_to_CA1_controls,
-         conn_CA3_to_CA3_ictal=conn_CA3_to_CA3_ictal,conn_CA3_to_CA1_ictal=conn_CA3_to_CA1_ictal)
+         conn_CA3_to_CA3_ictal=conn_CA3_to_CA3_ictal,conn_CA3_to_CA1_ictal=conn_CA3_to_CA1_ictal,
+         all_pf_CA3=all_pf_CA3,all_pf_CA1=all_pf_CA1)
