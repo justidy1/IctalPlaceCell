@@ -2,6 +2,7 @@ import nest
 import nest.random
 import numpy as np
 from scipy import interpolate
+from joblib import Parallel, delayed
 
 class LineMaze():
     '''
@@ -102,13 +103,6 @@ def firing_place_cell_linear(t,x,center_x,L,sigma=7,rmax=20):
 
     return lambda t: rmax*(np.exp(-((x_t(t)-center_x)**2)/(2*sigma**2)))*(1+np.cos(np.pi*7*t + (np.sign(center_x)*(x_t(t)-center_x)*np.pi/Q)))/2
 
-def firing_dopamine_reward(t,x,x_rz,sigma,rmax=20):
-    '''Reward firing rate. The firing rate is a gaussian centered at the reward zone.'''
-
-    x_t = interpolate.interp1d(t,x,kind='linear',fill_value='extrapolate')
-
-    return lambda t: rmax*(np.exp(-((x_t(t)-x_rz)**2)/(2*sigma**2)))
-
 def firing_ictal_spike(t,x,x_rz,sigma,rmax=20):
     '''A focal ictal spike. The firing rate is a gaussian centered at the reward zone.'''
 
@@ -141,7 +135,7 @@ def gen_spike_train(t_sim,STDP_ictal=False,seed=1234):
     # Create CA3 and CA1 populations of parrot neurons
     nest.ResetKernel()
     nest.local_num_threads = 8
-    nest.SetKernelStatus({"resolution": 0.1})
+    #nest.SetKernelStatus({"resolution": 0.1})
     nest.rng_seed=seed
 
     N_pyr = 1250
@@ -155,27 +149,32 @@ def gen_spike_train(t_sim,STDP_ictal=False,seed=1234):
     place_cell_spikes_CA3 = nest.Create("spike_train_injector", N_generators)
     place_cell_spikes_CA1 = nest.Create("spike_train_injector", N_generators)
 
-    def assign_spikes_to_pf_generator(pf,generator):
+    def assign_spikes_to_pf_generator(pf):
         r = firing_place_cell_linear(t,x,pf,L_maze,7)
         # draw spikes from the rate
         s_times = accept_reject_spike(0,t_sim,r)
-        nest.SetStatus(generator, {"spike_times": 1000*s_times+0.1,"allow_offgrid_times": True,"precise_times": False})
+        return s_times
 
-        return
-
+    print("Connecting place cells to spikes...")
     # for each generator, draw a random place field on the maze and assign the rate generated
     # along a trajectory to the generator
     pf_CA3 = np.sort(np.random.uniform(-L_maze/2,L_maze/2,N_generators))
-    for pf,generator in zip(pf_CA3,place_cell_spikes_CA3):
-        assign_spikes_to_pf_generator(pf,generator)
-
     pf_CA1 = np.sort(np.random.uniform(-L_maze/2,L_maze/2,N_generators))
-    for pf,generator in zip(pf_CA1,place_cell_spikes_CA1):
-        assign_spikes_to_pf_generator(pf,generator)
+    s_times = Parallel(n_jobs=8)(delayed(assign_spikes_to_pf_generator)(pf) for pf in np.concatenate((pf_CA3,pf_CA1)))
+    
+    s_times_CA3 = s_times[0:N_generators]
+    s_times_CA1 = s_times[N_generators:]
+
+    for s_time,generator in zip(s_times_CA3,place_cell_spikes_CA3):
+        nest.SetStatus(generator, {"spike_times": 1000*s_time+0.1,"allow_offgrid_times": True,"precise_times": False})
+    
+    for s_time,generator in zip(s_times_CA1,place_cell_spikes_CA1):
+        nest.SetStatus(generator, {"spike_times": 1000*s_time+0.1,"allow_offgrid_times": True,"precise_times": False})
 
     # generate the rest of the generators with random rates
     silent_cell_spikes = nest.Create("poisson_generator")
     nest.SetStatus(silent_cell_spikes, {"rate": 0.1})
+    print("Done connecting place cells to spikes...")
 
     # connect the generators to the CA3 and CA1 populations
     nest.Connect(place_cell_spikes_CA3, CA3_pyr[0:N_generators], syn_spec={'weight': 1.0,'receptor_type':0}, conn_spec={'rule': 'one_to_one'})
@@ -184,11 +183,11 @@ def gen_spike_train(t_sim,STDP_ictal=False,seed=1234):
     nest.Connect(silent_cell_spikes, CA1_pyr[N_generators:], syn_spec={'weight': 1.0,'receptor_type':0}, conn_spec={'rule': 'all_to_all'})
 
     # define a STDP synapse
-    weight_recorder = nest.Create("weight_recorder")
+    #weight_recorder = nest.Create("weight_recorder")
 
     # divide lambda by Wmax to scale everything to [0,1], which is then rescaled by Wmax in the synapse
-    nest.CopyModel("stdp_synapse", "CA3_to_CA3",{"alpha": -1.0, "lambda": 0.08/40, "tau_plus": 62.5,"mu_plus":0,"mu_minus":0, "Wmax": 40.0,"weight_recorder": weight_recorder})
-    nest.CopyModel("stdp_synapse", "CA3_to_CA1",{"alpha": 0.4, "lambda": 0.8/40, "tau_plus": 20.0,"mu_plus":0,"mu_minus":0, "Wmax": 40.0,"weight_recorder": weight_recorder})
+    nest.CopyModel("stdp_synapse", "CA3_to_CA3",{"alpha": -1.0, "lambda": 0.08/40, "tau_plus": 62.5,"mu_plus":0,"mu_minus":0, "Wmax": 40.0})
+    nest.CopyModel("stdp_synapse", "CA3_to_CA1",{"alpha": 0.4, "lambda": 0.8/40, "tau_plus": 20.0,"mu_plus":0,"mu_minus":0, "Wmax": 40.0})
 
     nest.Connect(CA3_pyr, CA3_pyr, syn_spec={'synapse_model':"CA3_to_CA3",'receptor_type':1,
                                             'weight':0.3*nest.random.lognormal(0,1)}, conn_spec={'rule': 'pairwise_bernoulli', 'p': 0.1,'allow_autapses': False})
@@ -214,16 +213,20 @@ def gen_spike_train(t_sim,STDP_ictal=False,seed=1234):
         # create parrot neuron for the spikes
         reward_zone_spikes_parrot = nest.Create("parrot_neuron",N_pyr)
         nest.Connect(reward_zone_spikes, reward_zone_spikes_parrot)
-        nest.Connect(reward_zone_spikes_parrot, CA3_pyr, syn_spec={'weight': 1.0,'receptor_type':0,'synapse_model':'bernoulli_synapse','p_transmit':0.01}, conn_spec={'rule': 'one_to_one'}) 
+        nest.Connect(reward_zone_spikes_parrot, CA3_pyr, syn_spec={'weight': 1.0,'receptor_type':0,'synapse_model':'bernoulli_synapse','p_transmit':0.01},
+                      conn_spec={'rule': 'one_to_one'}) 
 
     # monitor the spiking activity of the CA3 and CA1 populations
     spike_detector = nest.Create("spike_recorder")
     nest.Connect(CA3_pyr, spike_detector)
     nest.Connect(CA1_pyr, spike_detector)
+
+    print("Simulating...")
     nest.Simulate(t_sim*1000)
 
     conn_CA3_to_CA3 = nest.GetConnections(CA3_pyr,CA3_pyr).get(['source','target','weight'])
     conn_CA3_to_CA1 = nest.GetConnections(CA3_pyr,CA1_pyr).get(['source','target','weight'])
+    print("Done simulating")
 
     return conn_CA3_to_CA3,conn_CA3_to_CA1,pf_CA3,pf_CA1
 
@@ -237,21 +240,27 @@ conn_CA3_to_CA1_controls = []
 conn_CA3_to_CA3_ictal = []
 conn_CA3_to_CA1_ictal = []
 
-all_pf_CA3 = []
-all_pf_CA1 = []
+all_pf_CA3_controls = []
+all_pf_CA1_controls = []
+
+all_pf_CA3_ictal = []
+all_pf_CA1_ictal = []
 
 for i in range(N_reps):
     print(i)
     conn_CA3_to_CA3,conn_CA3_to_CA1,pf_CA3,pf_CA1 = gen_spike_train(t_sim,STDP_ictal=False,seed=i+1000)
     conn_CA3_to_CA3_controls.append(conn_CA3_to_CA3)
     conn_CA3_to_CA1_controls.append(conn_CA3_to_CA1)
-    all_pf_CA3.append(pf_CA3)
-    all_pf_CA1.append(pf_CA1)
+    all_pf_CA3_controls.append(pf_CA3)
+    all_pf_CA1_controls.append(pf_CA1)
     
     conn_CA3_to_CA3,conn_CA3_to_CA1,pf_CA3,pf_CA1 = gen_spike_train(t_sim,STDP_ictal=True,seed=i+1000)
     conn_CA3_to_CA3_ictal.append(conn_CA3_to_CA3)
     conn_CA3_to_CA1_ictal.append(conn_CA3_to_CA1)
+    all_pf_CA3_ictal.append(pf_CA3)
+    all_pf_CA1_ictal.append(pf_CA1)
 
 np.savez('data/line_maze_data.npz',conn_CA3_to_CA3_controls=conn_CA3_to_CA3_controls,conn_CA3_to_CA1_controls=conn_CA3_to_CA1_controls,
          conn_CA3_to_CA3_ictal=conn_CA3_to_CA3_ictal,conn_CA3_to_CA1_ictal=conn_CA3_to_CA1_ictal,
-         all_pf_CA3=all_pf_CA3,all_pf_CA1=all_pf_CA1)
+         all_pf_CA3_controls=all_pf_CA3_controls,all_pf_CA1_controls=all_pf_CA1_controls,
+         all_pf_CA3_ictal=all_pf_CA3_ictal,all_pf_CA1_ictal=all_pf_CA1_ictal)
