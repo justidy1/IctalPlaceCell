@@ -231,7 +231,7 @@ def gen_spike_train(t_sim,STDP_ictal=False,seed=1234):
     return conn_CA3_to_CA3,conn_CA3_to_CA1,pf_CA3,pf_CA1
 
 N_reps = 10
-t_sim = 600 # seconds
+t_sim = 1200 # seconds
 
 # store the results
 conn_CA3_to_CA3_controls = []
@@ -260,7 +260,7 @@ for i in range(N_reps):
     all_pf_CA3_ictal.append(pf_CA3)
     all_pf_CA1_ictal.append(pf_CA1)
 
-np.savez('data/line_maze_data.npz',conn_CA3_to_CA3_controls=conn_CA3_to_CA3_controls,conn_CA3_to_CA1_controls=conn_CA3_to_CA1_controls,
+np.savez('data/line_maze_data_long_1200s.npz',conn_CA3_to_CA3_controls=conn_CA3_to_CA3_controls,conn_CA3_to_CA1_controls=conn_CA3_to_CA1_controls,
          conn_CA3_to_CA3_ictal=conn_CA3_to_CA3_ictal,conn_CA3_to_CA1_ictal=conn_CA3_to_CA1_ictal,
          all_pf_CA3_controls=all_pf_CA3_controls,all_pf_CA1_controls=all_pf_CA1_controls,
          all_pf_CA3_ictal=all_pf_CA3_ictal,all_pf_CA1_ictal=all_pf_CA1_ictal)
