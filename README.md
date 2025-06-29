@@ -1,6 +1,8 @@
 # IctalPlaceCell
 This package reproduces the major simulation findings in Yi and Pasdarnavab et al. (in submission). 
 
+![Diagram_of_simulations](https://github.com/user-attachments/assets/dbe13b78-6c86-4517-9bf5-fc5b8c319c7c)
+
 **Files**:
 - gen_and_save_weights_SPREAD.py - runs "training" simulations and saves the trained networks in a .npz file.
 - query_replay_spread_NOTEBOOK.ipynb - a jupyter notebook which walks through the specific simulations needed to reproduce all the simulations presented in the paper. 
