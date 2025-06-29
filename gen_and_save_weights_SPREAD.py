@@ -291,7 +291,7 @@ for i in range(N_reps):
     all_pf_CA3_ictal_spread.append(pf_CA3)
     all_pf_CA1_ictal_spread.append(pf_CA1)
 
-np.savez('data/line_maze_data_spread.npz',conn_CA3_to_CA3_controls=conn_CA3_to_CA3_controls,conn_CA3_to_CA1_controls=conn_CA3_to_CA1_controls,
+np.savez_compressed('data/line_maze_data_spread_compressed.npz',conn_CA3_to_CA3_controls=conn_CA3_to_CA3_controls,conn_CA3_to_CA1_controls=conn_CA3_to_CA1_controls,
          conn_CA3_to_CA3_ictal=conn_CA3_to_CA3_ictal,conn_CA3_to_CA1_ictal=conn_CA3_to_CA1_ictal,
          conn_CA3_to_CA3_ictal_spread=conn_CA3_to_CA3_ictal_spread,conn_CA3_to_CA1_ictal_spread=conn_CA3_to_CA1_ictal_spread,
          all_pf_CA3_controls=all_pf_CA3_controls,all_pf_CA1_controls=all_pf_CA1_controls,
